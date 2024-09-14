@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  budget-bot:
+    build:
+      context: .
+    restart: always
+    volumes:
+      - ./sqlite:/app/sqlite

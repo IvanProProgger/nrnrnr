@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "bot-class-update"
+version = "0.1.0"
+description = ""
+authors = ["Иван Шелухин <ishelukhin@tennisi.it>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+python-telegram-bot = "^21.5"
+aiosqlite = "^0.20.0"
+gspread-asyncio = "^2.0.0"
+pandas = "^2.2.2"
+pytz = "^2024.2"
+oauth2 = "^1.9.0.post1"
+python-dotenv = "^1.0.1"
+mypy = "^1.11.2"
+pympler = "^1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
