@@ -25,4 +25,4 @@ ENV PYTHONPATH="/app:$PYTHONPATH"
 
 ENTRYPOINT ["python"]
 
-CMD ["marketing_budget_tennisi_bot/main.py"]
+CMD ["src/main.py"]

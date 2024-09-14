@@ -17,7 +17,7 @@ class Config:
     head_chat_ids: list[int] = list(map(int, getenv("HEAD_CHAT_IDS").split(",")))
     finance_chat_ids: list[int] = list(map(int, getenv("FINANCE_CHAT_IDS").split(",")))
     payment_chat_ids: list[int] = list(map(int, getenv("PAYMENT_CHAT_IDS").split(",")))
-    initiators_chat_ids: list[int] = list(map(int, getenv("INITIATORS_CHAT_IDS").split(",")))
+    initiator_chat_ids: list[int] = list(map(int, getenv("INITIATOR_CHAT_IDS").split(",")))
     developer_chat_id: list[int] = getenv("DEVELOPER_CHAT_ID")
     white_list: set[int] = set(map(int, getenv("WHITE_LIST").split(",")))
 
@@ -42,15 +42,23 @@ class Config:
             "482546749": "@bais_bais",
             "939635840": "@dantanusha",
             "5024126966": "Еленой Фомичёвой",
-            "594336984": "@Stilldaywonder"
+            "594336984": "@Stilldaywonder",
         },
-        "head": {"180543030": "@irina_kuderova", "523986696": "@bonn_ya", "594336984": "@Stilldaywonder"},
-        "finance": {"236746871": "@dizher1", "191096978": "@ushattt", "594336984": "@Stilldaywonder"},
+        "head": {
+            "180543030": "@irina_kuderova",
+            "523986696": "@bonn_ya",
+            "594336984": "@Stilldaywonder",
+        },
+        "finance": {
+            "236746871": "@dizher1",
+            "191096978": "@ushattt",
+            "594336984": "@Stilldaywonder",
+        },
         "payment": {
             "455256941": "@IrishkaKitty",
             "427967346": "Мариной Жихарь",
             "939635840": "@dantanusha",
             "5024126966": "Еленой Фомичёвой",
-            "594336984": "@Stilldaywonder"
+            "594336984": "@Stilldaywonder",
         },
     }

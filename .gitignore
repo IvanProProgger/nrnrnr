@@ -1,5 +1,5 @@
 config/.env
-data/credentials.json
+config/credentials.json
 .idea
 approvals.db
 logs/**/*.log

@@ -69,7 +69,9 @@ class GoogleSheetsManager:
             self.agc = await agcm.authorize()
             return self.agc
         except Exception as e:
-            raise RuntimeError(f"Не удалось авторизоваться в сервисе Google Sheet. Ошибка: {e}")
+            raise RuntimeError(
+                f"Не удалось авторизоваться в сервисе Google Sheet. Ошибка: {e}"
+            )
 
     async def add_payment_to_sheet(self, payment_info: dict[str, str]) -> None:
         """Добавление счёта в таблицу"""
@@ -84,9 +86,14 @@ class GoogleSheetsManager:
 
         today_date = await get_today_moscow_time()
         period = payment_info["period"].split(" ")
-        months = [datetime.strptime(f"01.{a}", "%d.%m.%y").strftime("%d.%m.%Y") for a in period]
+        months = [
+            datetime.strptime(f"01.{a}", "%d.%m.%y").strftime("%d.%m.%Y")
+            for a in period
+        ]
         total_sum = Decimal(payment_info["amount"]) / Decimal(len(months))
-        rounded_sum = float(total_sum.quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP))
+        rounded_sum = float(
+            total_sum.quantize(Decimal("0.0000000001"), rounding=ROUND_HALF_UP)
+        )
         for month in months:
             row_data = [
                 today_date,
@@ -114,7 +121,9 @@ class GoogleSheetsManager:
             spreadsheet = await self.agc.open_by_key(self.sheets_spreadsheet_id)
             worksheet = await spreadsheet.get_worksheet_by_id(self.categories_sheet_id)
         except Exception as e:
-            raise RuntimeError(f'Ошибка получения данных с листа "категории". Ошибка: {e}')
+            raise RuntimeError(
+                f'Ошибка получения данных с листа "категории". Ошибка: {e}'
+            )
 
         df = pd.DataFrame(await worksheet.get_all_records())
         unique_items = df["Статья"].unique()

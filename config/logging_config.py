@@ -13,7 +13,9 @@ MAX_FILES = 5
 def configure_logging(max_bytes=MAX_SIZE, backup_count=MAX_FILES):
     """Обработчик логгирования в проекте"""
     # Создаем обработчик файлового логгера
-    file_handler = RotatingFileHandler(LOG_FILE, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8")
+    file_handler = RotatingFileHandler(
+        LOG_FILE, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+    )
     file_handler.setLevel(logging.getLevelName(LOG_LEVEL))
     file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
 

@@ -7,26 +7,16 @@ from db import db
 from helper.messages import INITIATOR, HEAD, FINANCE, PAYMENT, ALL
 from helper.user_data import get_chat_ids, get_department
 
-from asyncio import gather
-from pympler.tracker import SummaryTracker
-import time
-
-# Настройка трота
-import tracemalloc
-
-
-tracemalloc.start()
-
 
 class MessageManager:
     """Класс для хранения данных и отправки сообщений по отделам"""
+
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(MessageManager, cls).__new__(cls)
             cls._instance._initialize()
-            logger.info(cls._instance)
         return cls._instance
 
     def _initialize(self):
@@ -37,13 +27,8 @@ class MessageManager:
             "head": HEAD,
             "finance": FINANCE,
             "payment": PAYMENT,
-            "result": ALL,
+            "all": ALL,
         }
-
-    def __del__(self):
-        if hasattr(self, '_del_called'):
-            return
-        self._del_called = True
 
     def __getitem__(self, row_id):
         """Позволяет обращаться к данным как к словарю."""
@@ -57,47 +42,29 @@ class MessageManager:
             name, AttributeError(f"Нет свойства {name} в {self.__class__.__name__}")
         )
 
-    def __setattr__(self, name, value):
-        """Позволяет устанавливать значения в self._data[name] через точечную нотацию."""
-        if name in {"_data", "messages", "db"}:
-            logger.info(self(130))
-            super().__setattr__(name, value)
-            logger.info(self._data)
-        elif isinstance(value, dict):
-            logger.info(self._data)
-            self._data.setdefault(name, {}).update(value)
+    def __setitem__(self, row_id: int, value: dict):
+        """Добавляет или обновляет значение по ID ячейки."""
+        if not isinstance(value, dict):
+            raise ValueError("Значение должно быть словарем.")
+        if not self._data.get(row_id):
+            self._data[row_id] = {}
+        self._data[row_id] = value
+
+    def __delitem__(self, row_id: int):
+        """Удаляет элемент по ID ячейки."""
+        if row_id in self._data:
+            del self._data[row_id]
         else:
-            logger.info(self._data)
-            raise ValueError(f"Значение должно быть словарем для {name}")
+            raise KeyError("ID ячейки не найден.")
 
     async def __call__(self, row_id: int) -> dict[str, int]:
         """Возвращает данные для указанного row_id."""
         return {"row_id": row_id, **self._data.get(row_id, {})}
 
-    async def add_new_record(self, record_dict: dict):
-        if not isinstance(record_dict, dict):
-            raise TypeError("record_dict должен быть словарем")
-
-        row_id = next(iter(record_dict))
-        if not row_id:
-            raise ValueError("В record_dict должен быть указан 'row_id'.")
-
-        self._data.setdefault(row_id, {})
-        await self.update_data(
-            row_id,
-            {
-                k: record_dict[row_id].get(k)
-                for k in [
-                    "initiator_chat_id",
-                    "initiator_nickname",
-                    "record_data_text",
-                    "amount",
-                ]
-            },
-        )
-        logger.info(f"After sending messages, _data: {self._data}")
-
     async def update_data(self, row_id: int, data_dict: dict):
+        """Обновляет данные ячейки по ID."""
+        if row_id not in self._data:
+            self._data[row_id] = {}  # Создаем запись, если её нет
         self._data[row_id].update(data_dict)
 
     async def get_message(self, department, stage, **kwargs) -> str:
@@ -110,7 +77,7 @@ class MessageManager:
         try:
             return self.messages[department][stage].format(**kwargs)
         except Exception as e:
-            raise f"Некорректные аргументы для получения сообщения: {e}"
+            raise ValueError(f"Некорректные аргументы для получения сообщения: {e}")
 
     async def send_messages_with_tracking(
         self,
@@ -122,8 +89,8 @@ class MessageManager:
         reply_markup: InlineKeyboardMarkup = None,
     ) -> None:
         """Отправка сообщения в выбранные телеграм-чаты с сохранением message_id и user_id."""
+
         message_text = await self.get_message(department, stage, **await self(row_id))
-        logger.info(message_text)
         message_ids = []
         actual_chat_ids = []
         if isinstance(chat_ids, (int, str)):
@@ -131,7 +98,9 @@ class MessageManager:
         for chat_id in chat_ids:
             try:
                 message = await context.bot.send_message(
-                    chat_id=chat_id, text=f"✨{message_text}✨", reply_markup=reply_markup
+                    chat_id=chat_id,
+                    text=f"✨{message_text}✨",
+                    reply_markup=reply_markup,
                 )
                 message_ids.append(message.message_id)
                 actual_chat_ids.append(chat_id)
@@ -163,19 +132,16 @@ class MessageManager:
         message_text = await self.get_message(department, stage, **await self(row_id))
         for chat_id, message_id in self._data[row_id].get(key):
             try:
-                await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
                 message = await context.bot.send_message(
-                    chat_id=chat_id, text=f"🔄{message_text}"
+                    chat_id=chat_id, text=f"🔄{message_text}", reply_markup=reply_markup
                 )
                 message_ids.append(message.message_id)
                 actual_chat_ids.append(chat_id)
-                # await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+                await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
             except Exception as e:
                 logger.error(f"Не удалось обновить сообщение с chat_id: {chat_id}: {e}")
                 pass
-        logger.info(f"After sending messages, _data: {self._data}")
         self._data.get(row_id)[key] = list(zip(actual_chat_ids, message_ids))
-        logger.info(f"After sending messages, _data: {self._data}")
 
     async def send_department_messages(
         self,
@@ -186,12 +152,9 @@ class MessageManager:
         stage: str,
         reply_markup: InlineKeyboardMarkup = None,
     ):
-
-        logger.info(f"Before sending messages, _data: {self._data}")
         await self.send_messages_with_tracking(
             context, row_id, chat_ids, department, stage, reply_markup=reply_markup
         )
-        logger.info(f"After sending messages, _data: {self._data}")
 
     async def edit_department_messages(
         self,
@@ -199,18 +162,41 @@ class MessageManager:
         row_id: int,
         department: str,
         stage: str,
+        reply_markup: InlineKeyboardMarkup = None,
     ):
         await self.resend_messages_with_tracking(
-            context, row_id, department, stage, reply_markup=None
+            context, row_id, department, stage, reply_markup=reply_markup
         )
-        logger.info(f"After sending messages, _data: {self._data}")
 
     async def command_reply_message(self, update, context, row_id):
         department = await get_department(update.effective_chat.id)
-        department_chat_ids = await get_chat_ids(self._data[row_id].get(department))
+        department_chat_ids = await get_chat_ids(department)
         await self.send_messages_with_tracking(
             context, row_id, department_chat_ids, department, stage=""
         )
+
+    async def get_all_messages(self, row_id: int) -> list[tuple]:
+        all_messages = []
+
+        # Получаем данные для каждого типа сообщений
+        for message_type in [
+            "initiator_messages",
+            "head_messages",
+            "finance_messages",
+            "payment_messages",
+        ]:
+            messages = self._data[row_id].get(message_type, [])
+            all_messages.extend(messages)
+
+        if not self._data.get(row_id):
+            self._data[row_id] = {}
+
+        if "all_messages" not in self._data[row_id]:
+            self._data[row_id]["all_messages"] = []
+
+        self._data[row_id]["all_messages"].extend(all_messages)
+
+        return self._data[row_id]["all_messages"]
 
 
 message_manager = MessageManager()

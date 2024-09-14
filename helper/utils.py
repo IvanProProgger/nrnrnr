@@ -58,11 +58,10 @@ async def create_approval_keyboard(
             )
         ],
     ]
-    logger.info(message_manager._data)
     return InlineKeyboardMarkup(keyboard)
 
 
-async def create_payment_keyboard(row_id: str) -> InlineKeyboardMarkup:
+async def create_payment_keyboard(row_id: int) -> InlineKeyboardMarkup:
     """
     Создание кнопок "Оплачено",
     создание и отправка сообщения для одобрения заявки.

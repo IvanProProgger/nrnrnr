@@ -8,7 +8,7 @@ from telegram.ext import (
 )
 
 from config.config import Config
-from bot_class_update.conversation_handler import (
+from src.conversation_handler import (
     enter_record,
     input_sum,
     input_item,
@@ -20,7 +20,7 @@ from bot_class_update.conversation_handler import (
     confirm_command,
     stop_dialog,
 )
-from bot_class_update.handlers import (
+from src.handlers import (
     start_command,
     submit_record_command,
     approval_handler,

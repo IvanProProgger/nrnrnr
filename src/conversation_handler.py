@@ -8,8 +8,8 @@ from config.config import Config
 from config.logging_config import logger
 from helper.user_data import get_nickname
 from helper.utils import validate_period_dates
-from bot_class_update.handlers import submit_record_command
-# from bot_class_update.sheets import GoogleSheetsManager
+from src.handlers import submit_record_command
+# from src.sheets import GoogleSheetsManager
 
 (
     INPUT_SUM,
@@ -44,7 +44,7 @@ async def enter_record(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     # авторизуемся в Google Sheets, сохраняем данные о статьях, группах, партнёрах из таблицы "категории"
 
     context.user_data["initiator_chat_id"] = update.effective_chat.id
-    if context.user_data["initiator_chat_id"] not in Config.initiators_chat_ids:
+    if context.user_data["initiator_chat_id"] not in Config.initiator_chat_ids:
         raise PermissionError("Команда запрещена! Вы не находитесь в списке инициаторов.")
 
     # manager = GoogleSheetsManager()
@@ -365,7 +365,7 @@ async def confirm_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.args = context.user_data.get("final_command").split()
         context.bot_data["initiator_message"] = context.user_data["initiator_message"]
         context.user_data.clear()
-        initiator_nickname = await get_nickname("initiators", query.from_user.id)
+        initiator_nickname = await get_nickname("initiator", query.from_user.id)
         logger.info(f"Счёт создан инициатором: {initiator_nickname}")
         await submit_record_command(update, context)
         return ConversationHandler.END

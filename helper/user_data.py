@@ -17,14 +17,16 @@ async def get_department(chat_id: str | int) -> str:
 
 async def get_chat_ids(department: str) -> list[str]:
     """Возвращает chat_id по названию департамента"""
-    return [str(chat_id) for chat_id in getattr(Config, f"{department.lower()}_chat_ids")]
+    return [
+        str(chat_id) for chat_id in getattr(Config, f"{department.lower()}_chat_ids")
+    ]
 
 
 async def get_departments(chat_id: str) -> list[str] | None:
     """Возвращает список департаментов по chat_id"""
     try:
         departments = {}
-        for department in ["initiators", "head", "finance", "payers"]:
+        for department in ["initiator", "head", "finance", "payers"]:
             for chat_id in getattr(Config, f"{department}_chat_ids"):
                 if chat_id not in departments:
                     departments[chat_id] = []

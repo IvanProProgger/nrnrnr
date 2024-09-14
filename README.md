@@ -11,6 +11,7 @@ Google Sheet таблицу "Бюджет маркетинг RU внутренн
 
 - `/enter_record`: Запустить ввод данных о счете
 - `/stop`: Прервать ввод информации о счете
+- `/check`: Ввести ID счёта и посмотреть его статус
 - `/show_not_paid`: Просмотреть все неоплаченные счета
 - `/reject_record`: Ввести ID счета для отклонения платежа
 - `/approve_record`: Ввести ID счета для подтверждения платежа
@@ -19,7 +20,7 @@ Google Sheet таблицу "Бюджет маркетинг RU внутренн
 
 Для запуска бота выполните следующие шаги:
 
-1. Создайте файл ./data/credentials.json с данными сервисного аккаунта Google
+1. Создайте файл ./config/credentials.json с данными сервисного аккаунта Google
 
 2. Создайте файл ./config/.env со следующими переменными:
 
@@ -27,7 +28,7 @@ Google Sheet таблицу "Бюджет маркетинг RU внутренн
 
    GOOGLE_SHEETS_SPREADSHEET_ID=spreadsheet_id
 
-   DATABASE_PATH=./approvals.db
+   DATABASE_PATH=./db/approvals.db
 
    GOOGLE_SHEETS_CREDENTIALS_FILE=./data/credentials.json
 
@@ -35,7 +36,7 @@ Google Sheet таблицу "Бюджет маркетинг RU внутренн
 
    GOOGLE_SHEETS_RECORDS_SHEET_ID=sheet_id-листа-счетов
 
-   INITIATORS_CHAT_IDS=chat_ids-инициаторов
+   INITIATOR_CHAT_IDS=chat_ids-инициаторов
 
    HEAD_CHAT_IDS=chat_id-главы-департамента
 

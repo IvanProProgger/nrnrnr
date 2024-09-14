@@ -1,5 +1,4 @@
 import textwrap
-import tracemalloc
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -13,8 +12,9 @@ from helper.utils import (
     split_long_message,
     get_record_info,
     create_approval_keyboard,
+    create_payment_keyboard,
 )
-from bot_class_update.sheets import add_record_to_google_sheet
+from src.sheets import add_record_to_google_sheet
 
 from helper.user_data import get_nickname, get_chat_ids, get_department
 from db import db
@@ -40,11 +40,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "<i>5) Дата оплаты и дата начисления платежа через пробел</i>\n"
         "<i>6) Форма оплаты</i>\n"
         "<i>7) Комментарий к платежу</i>\n"
-        "<i>Каждый пункт необходимо указывать строго через запятую.</i>\n\n"
+        # "<i>Каждый пункт необходимо указывать строго через запятую.</i>\n\n"
+        "<i>Узнать о статусе интересующего платежа можно командой /check <b>ID</b></i>\n\n"
         "<i>Вы можете просмотреть необработанные платежи командой /show_not_paid</i>\n\n"
-        "<i>Одобрить заявку можно командой /approve_record указав id платежа</i>\n\n"
-        "<i>Отклонить заявку можно командой /reject_record указав id платежа</i>\n\n"
-        f"<i>Ваш chat_id - {update.message.chat_id}</i>",
+        "<i>Одобрить заявку можно командой /approve_record <b>ID</b> платежа</i>\n\n"
+        "<i>Отклонить заявку можно командой /reject_record <b>ID</b> платежа</i>\n\n"
+        f"<i>Ваш id чата - {update.message.chat_id}</i>",
         parse_mode="HTML",
     )
 
@@ -74,13 +75,9 @@ async def submit_record_command(
     try:
         department = "initiator"
         initiator_chat_id, stage = (
-            # (await message_manager(row_id)).get("initiator_chat_id"),
             update.effective_chat.id,
-            # logger.info(message_manager._data),
             "initiator_to_head",
         )
-        # amount = (await message_manager(row_id))
-        # logger.info(amount)
         if not context.bot_data.get("initiator_message"):
             await message_manager.send_department_messages(
                 context, row_id, department, initiator_chat_id, stage
@@ -88,14 +85,13 @@ async def submit_record_command(
 
         department = "head"
         head_chat_id, stage = await get_chat_ids(department), "from_initiator"
-        # logger.info(message_manager._data)
         await message_manager.send_department_messages(
             context,
             row_id,
             department,
             head_chat_id,
             stage,
-            reply_markup=await create_approval_keyboard(row_id, department)
+            reply_markup=await create_approval_keyboard(row_id, department),
         )
     except Exception as e:
         raise RuntimeError(
@@ -145,18 +141,23 @@ async def add_record_to_storage(update: Update, record_dict: dict) -> int:
     record_data_text = await get_record_info(record_dict)
     amount = record_dict.get("amount")
     initiator_nickname = await get_nickname("initiator", initiator_chat_id)
-    await message_manager.add_new_record(
-        {
-            row_id: {
-                "initiator_chat_id": initiator_chat_id,
-                "initiator_nickname": initiator_nickname,
-                "record_data_text": record_data_text,
-                "amount": amount,
-            }
-        }
-    )
+    # await message_manager.update_data(
+    #     row_id,
+    #     {
+    #         "initiator_chat_id": initiator_chat_id,
+    #         "initiator_nickname": initiator_nickname,
+    #         "record_data_text": record_data_text,
+    #         "amount": amount,
+    #     },
+    # )
+    message_manager[row_id] = {
+        "initiator_chat_id": initiator_chat_id,
+        "initiator_nickname": initiator_nickname,
+        "record_data_text": record_data_text,
+        "amount": amount,
+    }
 
-
+    logger.info(await message_manager(row_id))
     return row_id
 
 
@@ -164,27 +165,18 @@ async def approval_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """
     Обработчик нажатий пользователем кнопок "Одобрить" или "Отклонить."
     """
-    snapshot = tracemalloc.take_snapshot()
-    top_stats = snapshot.statistics('lineno')
-    print("[ Top 10 ]")
-    for stat in top_stats[:10]:
-        print(stat)
     try:
-
         query = update.callback_query
         _, action, department, row_id = query.data.split("_")
         row_id = int(row_id)
-        # logger.info(await message_manager(row_id))
         approver = await get_nickname(department, query.from_user.id)
+        await message_manager.update_data(row_id, {"approver": approver})
+        amount = (await message_manager(row_id)).get("amount")
     except Exception as e:
         raise RuntimeError(f'Ошибка обработки кнопок "Одобрить" и "Отклонить". {e}')
 
     try:
         # распределяем данные платежа по отделам для принятия решения об одобрении
-        logger.info(await message_manager(row_id))
-        # amount = (await message_manager(row_id))
-
-        amount = message_manager._data[row_id]["amount"]
         await approval_process(
             context, update, action, row_id, approver, department, amount
         )
@@ -196,7 +188,7 @@ async def approval_process(
     context: ContextTypes.DEFAULT_TYPE,
     update: Update,
     action: str,
-    row_id: str,
+    row_id: int,
     approver: str,
     department: str,
     amount: float,
@@ -217,7 +209,10 @@ async def approval_process(
 
 
 async def approve_to_financial_department(
-    context: ContextTypes.DEFAULT_TYPE, update: Update, row_id: str, approver: str
+    context: ContextTypes.DEFAULT_TYPE,
+    update: Update,
+    row_id: int,
+    department_approved: str,
 ) -> None:
     """
     Изменение количества апрувов и статуса платежа.
@@ -226,35 +221,42 @@ async def approve_to_financial_department(
     """
     # Добавляем
     approvals_received, status = 1, "Pending"
-    await update_storage_data(row_id, status, approver, approvals_received=None)
+    await update_storage_data(
+        row_id, status, department_approved, approvals_received=None
+    )
 
     # меняем сообщение инициатору
     department, stage = "initiator", "head_to_finance"
-    initiator_chat_id = (await message_manager(row_id))["initiator_chat_id"]
-    message_manager.edit_department_messages(
-        context, row_id, department, initiator_chat_id, stage, reply_markup=None
+    await message_manager.edit_department_messages(
+        context, row_id, department, stage, reply_markup=None
     )
 
     # меняем сообщение руководителю департамента или создаём
     # ответное новое сообщение на команду руководителя департамента
-    if message_manager(row_id).get("head_message_id"):
-        message_manager.edit_department_messages(
-            context, row_id, department, initiator_chat_id, stage, reply_markup=None
+    department, stage = "head", "head_to_finance"
+    if (await message_manager(row_id)).get("head_messages"):
+        await message_manager.edit_department_messages(
+            context, row_id, department, stage, reply_markup=None
         )
     else:
         await message_manager.command_reply_message(update, context, row_id)
 
     # отправляем сообщение сотрудникам финансового отдела
-
-    await message_manager.edit_department_messages(
-        context, row_id, department, initiator_chat_id, stage, reply_markup=None
+    department, stage = "finance", "from_head"
+    finance_chat_ids = await get_chat_ids("finance")
+    await message_manager.send_department_messages(
+        context,
+        row_id,
+        department,
+        finance_chat_ids,
+        stage,
+        reply_markup=await create_approval_keyboard(row_id, department),
     )
 
 
 async def update_storage_data(
-    row_id: str, status: str, approver: str = None, approvals_received: str = None
+    row_id: int, status: str, approver: str = None, approvals_received: str = None
 ):
-    # logger.info(message_manager._data)
     try:
         async with db:
             is_approver_exist = await db.get_column_by_id("approved_by", row_id)
@@ -271,76 +273,64 @@ async def update_storage_data(
     except Exception as e:
         raise RuntimeError(f"Не удалось обновить данные в базе данных: {e}")
 
+    await message_manager.update_data(row_id, {"approver": approver})
+
 
 async def approve_to_payment_department(
     context: ContextTypes.DEFAULT_TYPE,
     update: Update,
-    row_id: str,
+    row_id: int,
     approver: str,
-    department: str,
+    department_approved: str,
 ) -> None:
     """
     Изменение количество апрувов и статус платежа. При сумме более 50.000 апрувит "finance" иначе "head" департамент
     Отправка сообщения об одобрении платежа для отдела оплаты.
     Изменение сообщения от бота в чатах участников департамента "head" или "finance"
     """
-    approvals_received, status = 2 if department == "finance" else 1, "Approved"
-    await update_storage_data(row_id, status, approver, approvals_received=None)
-
-    chat_id, stage = message_manager(row_id).get("initiator_chat_id"), (
-        "head_finance_to_payment" if department == "finance" else "head_to_payment"
-    )
-    await message_manager.edit_department_messages(
-        context, row_id, department, chat_id, stage
+    approvals_received, status = (
+        2 if department_approved == "finance" else 1
+    ), "Approved"
+    await update_storage_data(
+        row_id, status, approver, approvals_received=None
     )
 
-    department = "head"
-    chat_id, stage = get_chat_ids(department), (
-        "head_to_payment" if department == "finance" else "head_to_finance"
+    # Меняем сообщение инициатору в зависимости от того кто одобрил счёт (руководитель или финансист)
+    stage = (
+        "head_finance_to_payment"
+        if department_approved == "finance"
+        else "head_to_payment"
     )
-    await message_manager.edit_department_messages(
-        context, row_id, department, chat_id, stage
-    )
-
-    department = "finance"
-    chat_id, stage = get_chat_ids(department), (
-        "to_payment" if department == "finance" else "from_head"
-    )
-    await message_manager.edit_department_messages(
-        context, row_id, department, chat_id, stage
-    )
-
-    department = "payment"
-    chat_id, stage = get_chat_ids(department), (
-        "finance_to_payment" if department == "finance" else "head_to_payment"
-    )
-    await message_manager.send_department_messages(
-        context, row_id, department, chat_id, stage
-    )
-
-
-async def reject_record(
-    context: ContextTypes.DEFAULT_TYPE,
-    row_id: str,
-    approver: str,
-) -> None:
-    """Отправка сообщения об отклонении платежа и изменении статуса платежа."""
-
-    status, approver = "Rejected", approver
-    await update_storage_data(row_id, status, approver, approvals_received=None)
-
-    department, stage = "all", "rejected"
-    # logger.info(message_manager._data)
-    # logger.info(await message_manager(row_id))
-    message_manager(row_id)["all_messages"] = (
-        (await message_manager(row_id)).get("initiator_messages")
-        + (await message_manager(row_id)).get("head_messages")
-        + (await message_manager(row_id)).get("finance_messages")
-        + (await message_manager(row_id)).get("payment_messages")
-    )
+    department = "initiator"
     await message_manager.edit_department_messages(context, row_id, department, stage)
 
-    await message_manager[row_id].remove()
+    # Меняем сообщение руководителю отдела маркетинга (в финансовый отдел или на оплату)
+    department = "head"
+    stage = "head_to_payment" if department_approved == "finance" else "head_to_finance"
+    await message_manager.edit_department_messages(context, row_id, department, stage)
+
+    # Если одобрил финансовый отдел - меняем им сообщение (счёт отправлен на оплату)
+    if department_approved == "finance":
+        department = "finance"
+        stage = "to_payment" if department_approved == "finance" else "from_head"
+        await message_manager.edit_department_messages(
+            context, row_id, department, stage
+        )
+
+    # Отправляем сообщение плательщикам от руководителя маркетингового отдела или финансиста
+    department = "payment"
+    chat_id = await get_chat_ids(department)
+    stage = (
+        "finance_to_payment" if department_approved == "finance" else "head_to_payment"
+    )
+    await message_manager.send_department_messages(
+        context,
+        row_id,
+        department,
+        chat_id,
+        stage,
+        reply_markup=await create_payment_keyboard(row_id),
+    )
 
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -351,55 +341,31 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     try:
         query = update.callback_query
         response_list = query.data.split("_")
-        row_id = response_list[1]
-        approver = await get_nickname("payment", query.from_user.id)
-
+        row_id = int(response_list[1])
     except Exception as e:
         raise RuntimeError(f'Ошибка считывания данных с кнопки "Оплачено". Ошибка: {e}')
 
-    await make_payment_and_add_record_to_google_sheet(update, context, row_id)
+    await make_payment(update, context, row_id)
 
 
-async def make_payment_and_add_record_to_google_sheet(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, row_id
+async def reject_record(
+    context: ContextTypes.DEFAULT_TYPE, row_id: int, approver: str
 ) -> None:
+    """Отправка сообщения об отклонении платежа и изменении статуса платежа."""
+    await update_storage_data(row_id, "Rejected")
+    await message_manager.get_all_messages(row_id)
+    await message_manager.edit_department_messages(context, row_id, "all", "rejected")
+    del message_manager[row_id]
+
+
+async def make_payment(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, row_id: int
+) -> None:
+    """Добавление записи в Google Sheets после успешного платежа."""
     await update_storage_data(row_id, "Paid")
-
-    message_manager(row_id)["all_messages"] = (
-        await message_manager(row_id).get("initiator_messages")
-        + await message_manager(row_id).get("head_messages")
-        + await message_manager(row_id).get("finance_messages")
-        + await message_manager(row_id).get("payment_messages")
-    )
-    department, stage = "all", "paid"
-    await message_manager.edit_department_messages(context, row_id, department, stage)
-
-    await message_manager(row_id).remove()
-    # await add_record_to_google_sheet(record_dict)
-
-
-# async def check_department(approver_id: str) -> str | None:
-#     """Возвращает название департамента, к которому принадлежит approver_id."""
-#     departments = {  # Если у approver_id возможен только 1 департамент
-#         **{str(k): "head" for k in Config.head_chat_ids},
-#         **{str(k): "finance" for k in Config.finance_chat_ids},
-#         **{str(k): "payment" for k in Config.payers_chat_ids},
-#     }
-#     user_department = departments.get(approver_id)
-#     if user_department not in ("head", "finance", "payment"):
-#         return None
-#     return user_department
-
-# departments = {}  #  Если пользователи могут состоять более чем в 1 департаменте
-# for department in ["head", "finance", "payers"]:
-#     for chat_id in getattr(Config, f"{department}_chat_ids"):
-#         if chat_id not in departments:
-#             departments[chat_id] = []
-#         departments[chat_id].append(department)
-# user_department = departments.get(approver_id)
-# if not any(department in user_department for department in ("head", "finance", "payers")):
-#     return None
-# return user_department
+    await message_manager.get_all_messages(row_id)
+    await message_manager.edit_department_messages(context, row_id, "all", "paid")
+    del message_manager[row_id]
 
 
 async def reject_record_command(
@@ -583,7 +549,7 @@ async def error_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         error_traceback = traceback.format_exc()
         message_text = f"{str(context.error)}"
         await context.bot.send_message(update.effective_chat.id, message_text)
-        # await context.bot.send_message(Config.developer_chat_id, f"{message_text} {error_traceback}")
+        await context.bot.send_message(Config.developer_chat_id, f"{message_text} {error_traceback}")
         logger.error(f"{message_text}\n{error_traceback}")
 
     except Exception as e:
