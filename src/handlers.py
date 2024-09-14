@@ -255,7 +255,9 @@ async def update_storage_data(row_id, **kwargs: int | str | None):
             is_approver_exist = await db.get_column_by_id("approved_by", row_id)
             if is_approver_exist and kwargs.get("approved_by"):
                 kwargs["approved_by"] = f"{is_approver_exist} и {kwargs['approved_by']}"
-                await message_manager.update_data(row_id, {"approver": kwargs.get("approved_by")})
+                await message_manager.update_data(
+                    row_id, {"approver": kwargs.get("approved_by")}
+                )
             update_data = {
                 key: value for key, value in kwargs.items() if value is not None
             }
@@ -385,15 +387,15 @@ async def reject_record_command(
 
     approver = await get_nickname(department, approver_id)
     async with db:
-        record = await db.get_row_by_id(row_id)
-    if not record:
+        record_dict = await db.get_row_by_id(row_id)
+    if not record_dict:
         raise RuntimeError(f"Счёт с id: {row_id} не найден.")
 
-    status = record.get("status")
+    status = record_dict.get("status")
     if status in ("Rejected", "Paid"):
         raise RuntimeError(f"Счёт №{row_id} уже обработан")
 
-    approvals_received = record.get("approvals_received")
+    approvals_received = record_dict.get("approvals_received")
     if department == "head":
         if not (
             approvals_received == 0
@@ -415,8 +417,8 @@ async def reject_record_command(
             raise RuntimeError(
                 "Вы не можете отклонить данный счет! Обратитесь к руководителю департамента"
             )
-
-    await update.message.reply_text(f"Счёт {row_id} отклонён!")
+    await message_manager.update_data(row_id, {"record_data_text": await get_record_info(record_dict)})
+    await update.message.reply_text(f"Счёт №{row_id} отклонён!")
     await reject_record(context, row_id, approver)
 
 
