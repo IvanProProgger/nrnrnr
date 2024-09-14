@@ -6,4 +6,4 @@ services:
       context: .
     restart: always
     volumes:
-      - ./sqlite:/app/sqlite
+      - ./database:/app/database

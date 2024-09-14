@@ -46,8 +46,6 @@ class MessageManager:
         """Добавляет или обновляет значение по ID ячейки."""
         if not isinstance(value, dict):
             raise ValueError("Значение должно быть словарем.")
-        if not self._data.get(row_id):
-            self._data[row_id] = {}
         self._data[row_id] = value
 
     def __delitem__(self, row_id: int):
@@ -63,9 +61,7 @@ class MessageManager:
 
     async def update_data(self, row_id: int, data_dict: dict):
         """Обновляет данные ячейки по ID."""
-        if row_id not in self._data:
-            self._data[row_id] = {}  # Создаем запись, если её нет
-        self._data[row_id].update(data_dict)
+        self._data.setdefault(row_id, {}).update(data_dict)
 
     async def get_message(self, department, stage, **kwargs) -> str:
         if department not in self.messages:
@@ -77,7 +73,8 @@ class MessageManager:
         try:
             return self.messages[department][stage].format(**kwargs)
         except Exception as e:
-            raise ValueError(f"Некорректные аргументы для получения сообщения: {e}")
+            logger.error(f"Ошибка при форматировании сообщения: {e}")
+            raise ValueError(f"Ошибка при форматировании сообщения: {e}")
 
     async def send_messages_with_tracking(
         self,
@@ -169,11 +166,14 @@ class MessageManager:
         )
 
     async def command_reply_message(self, update, context, row_id):
-        department = await get_department(update.effective_chat.id)
-        department_chat_ids = await get_chat_ids(department)
-        await self.send_messages_with_tracking(
-            context, row_id, department_chat_ids, department, stage=""
-        )
+        try:
+            department = await get_department(update.effective_chat.id)
+            department_chat_ids = await get_chat_ids(department)
+            await self.send_messages_with_tracking(
+                context, row_id, department_chat_ids, department, stage=""
+            )
+        except Exception as e:
+            logger.error(f"Ошибка в команде reply_message: {e}")
 
     async def get_all_messages(self, row_id: int) -> list[tuple]:
         all_messages = []
