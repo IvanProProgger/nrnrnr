@@ -332,9 +332,10 @@ async def reject_record(
     await initiator_reject_message(context, row_id, record_dict)
 
     await head_reject_message(context, row_id)
-
-    if record_dict.get("approval_received") == 2:
+    logger.info(record_dict.get("approvals_received"))
+    if record_dict.get("approvals_received") == 1:
         await finance_reject_message(context, row_id, record_dict)
+    logger.info(record_dict.get("approvals_received"))
 
     del message_manager[row_id]
 
