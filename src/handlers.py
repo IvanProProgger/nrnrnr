@@ -13,7 +13,12 @@ from helper.user_data import (
     get_department,
     get_chat_id_by_nickname,
 )
-from helper.utils import validate_period_dates, split_long_message, get_record_info, get_record_by_id
+from helper.utils import (
+    validate_period_dates,
+    split_long_message,
+    get_record_info,
+    get_record_by_id,
+)
 from src.approval_process import (
     payment_from_head_approval_message,
     payment_from_head_and_finance_approval_message,
@@ -30,7 +35,10 @@ from src.approval_process import (
     head_to_payment_message,
     initiator_head_to_payment_message,
     head_to_finance_message,
-    initiator_head_to_finance_message, initiator_reject_message, head_reject_message, finance_reject_message,
+    initiator_head_to_finance_message,
+    initiator_reject_message,
+    head_reject_message,
+    finance_reject_message,
     payment_reject_message,
 )
 from src.sheets import add_record_to_google_sheet
@@ -203,6 +211,7 @@ async def approval_process(
 ) -> None:
     """Обработчик платежей для одобрения или отклонения."""
     if action == "approve":
+
         if department == "head" and amount >= 50000:
             await approve_to_finance_department(context, row_id, approver)
 

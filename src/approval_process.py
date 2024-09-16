@@ -275,7 +275,9 @@ async def initiator_reject_message(
 
 async def head_reject_message(context: ContextTypes.DEFAULT_TYPE, row_id):
     if message_manager[row_id].get("head_messages"):
-        await message_manager.edit_department_messages(context, row_id, "head", "rejected")
+        await message_manager.edit_department_messages(
+            context, row_id, "head", "rejected"
+        )
     else:
         head_chat_id = await get_chat_ids("rejected")
         await message_manager.send_department_messages(

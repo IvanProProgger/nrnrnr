@@ -3,6 +3,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime
 from db import db
 
+
 async def validate_period_dates(period: str) -> str:
     """Проверяет корректность формата дат."""
     try:

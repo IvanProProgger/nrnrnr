@@ -298,7 +298,7 @@ async def input_dates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         period_dates = match.group(0)
         await validate_period_dates(period_dates)
     except Exception as e:
-        await update.message.reply_text("Неверный формат дат. Попробуйте ещё раз.")
+        await update.message.reply_text(f"Неверный формат дат. Попробуйте ещё раз. Ошибка: {e}")
         bot_message = await update.message.reply_text(
             'Введите месяц и год начисления счёта строго через пробел в формате mm.yy (Например "09.22 11.22"):',
             reply_markup=ForceReply(selective=True),

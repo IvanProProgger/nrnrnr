@@ -26,7 +26,7 @@ class MessageManager:
             "initiator": INITIATOR,
             "head": HEAD,
             "finance": FINANCE,
-            "payment": PAYMENT
+            "payment": PAYMENT,
         }
 
     def __getitem__(self, row_id):
@@ -75,6 +75,7 @@ class MessageManager:
             logger.error(f"Ошибка при форматировании сообщения: {e}")
             raise ValueError(f"Ошибка при форматировании сообщения: {e}")
 
+
     async def send_messages_with_tracking(
         self,
         context: ContextTypes.DEFAULT_TYPE,
@@ -106,9 +107,7 @@ class MessageManager:
                     f"🚨Ошибка при отправке сообщения в chat_id: {chat_id}. Ошибка: {e}"
                 )
                 pass
-        self[row_id][f"{department}_messages"] = list(
-            zip(actual_chat_ids, message_ids)
-        )
+        self[row_id][f"{department}_messages"] = list(zip(actual_chat_ids, message_ids))
 
     async def resend_messages_with_tracking(
         self,
@@ -139,8 +138,6 @@ class MessageManager:
                 logger.error(f"Не удалось обновить сообщение с chat_id: {chat_id}: {e}")
                 pass
         self[row_id][key] = list(zip(actual_chat_ids, message_ids))
-
-
 
     async def send_department_messages(
         self,
