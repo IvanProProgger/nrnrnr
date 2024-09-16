@@ -1,10 +1,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from datetime import datetime
-
-from config.logging_config import logger
-from helper.message_manager import message_manager
-
+from db import db
 
 async def validate_period_dates(period: str) -> str:
     """Проверяет корректность формата дат."""
@@ -21,6 +18,15 @@ async def validate_period_dates(period: str) -> str:
             f'строго через пробел(например: "08.22 10.22").\n'
             f"Ошибка: {e}"
         )
+
+
+async def get_record_by_id(row_id: int) -> dict:
+    """
+    Получает запись из базы данных по id.
+    """
+    async with db:
+        record_dict = await db.get_row_by_id(row_id)
+    return record_dict
 
 
 async def get_record_info(record_dict: dict) -> str:

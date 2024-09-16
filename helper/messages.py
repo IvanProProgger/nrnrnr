@@ -14,6 +14,8 @@ INITIATOR = {
         "Счет №{row_id} согласован руководителем департамента и сотрудником финансового отдела: {approver} "
         "и передан на оплату.\n{record_data_text}"
     ),
+    "paid": "Счет №{row_id} оплачен {approver}.\n{record_data_text}",
+    "rejected": "Счет №{row_id} отклонен {approver}.\n{record_data_text}",
 }
 
 HEAD = {
@@ -30,6 +32,8 @@ HEAD = {
         "Счет №{row_id} согласован вами и сотрудником финансового отдела: {approver}.\n"
         "Счет передан на оплату.\n{record_data_text}"
     ),
+    "paid": "Счет №{row_id} оплачен {approver}.\n{record_data_text}",
+    "rejected": "Счет №{row_id} отклонен {approver}.\n{record_data_text}",
 }
 
 FINANCE = {
@@ -42,6 +46,8 @@ FINANCE = {
         "Счет №{row_id} согласован вами и руководителем департамента: {approver}.\n"
         "Счет передан на оплату.\n{record_data_text}"
     ),
+    "paid": "Счет №{row_id} оплачен {approver}.\n{record_data_text}",
+    "rejected": "Счет №{row_id} отклонен {approver}.\n{record_data_text}",
 }
 
 PAYMENT = {
@@ -54,8 +60,6 @@ PAYMENT = {
         " сотрудником финансового отдела: {approver}, и готов к оплате.\nПожалуйста, оплатите счет.\n"
         "{record_data_text}"
     ),
-}
-ALL = {
     "paid": "Счет №{row_id} оплачен {approver}.\n{record_data_text}",
     "rejected": "Счет №{row_id} отклонен {approver}.\n{record_data_text}",
 }

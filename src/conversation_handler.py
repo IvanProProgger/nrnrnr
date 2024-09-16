@@ -1,5 +1,4 @@
 import re
-from datetime import datetime
 
 from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
@@ -9,7 +8,7 @@ from config.logging_config import logger
 from helper.user_data import get_nickname
 from helper.utils import validate_period_dates
 from src.handlers import submit_record_command
-# from src.sheets import GoogleSheetsManager
+from src.sheets import GoogleSheetsManager
 
 (
     INPUT_SUM,
@@ -45,12 +44,14 @@ async def enter_record(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     context.user_data["initiator_chat_id"] = update.effective_chat.id
     if context.user_data["initiator_chat_id"] not in Config.initiator_chat_ids:
-        raise PermissionError("Команда запрещена! Вы не находитесь в списке инициаторов.")
+        raise PermissionError(
+            "Команда запрещена! Вы не находитесь в списке инициаторов."
+        )
 
-    # manager = GoogleSheetsManager()
-    # await manager.initialize_google_sheets()
-    # options_dict, items = await manager.get_data()
-    # context.user_data["options"], context.user_data["items"] = options_dict, items
+    manager = GoogleSheetsManager()
+    await manager.initialize_google_sheets()
+    options_dict, items = await manager.get_data()
+    context.user_data["options"], context.user_data["items"] = options_dict, items
 
     # отправляем сообщение "Введите сумму" от бота
 
@@ -97,7 +98,9 @@ async def input_sum(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(f"Введена сумма: {user_sum}")
     items = context.user_data["items"]
     reply_markup = await create_keyboard(items)
-    await update.message.reply_text("Выберите статью расхода:", reply_markup=reply_markup)
+    await update.message.reply_text(
+        "Выберите статью расхода:", reply_markup=reply_markup
+    )
 
     return INPUT_ITEM
 
@@ -161,7 +164,9 @@ async def input_item(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return INPUT_PARTNER
 
     reply_markup = await create_keyboard(groups)
-    await query.message.reply_text("Выберите группу расхода:", reply_markup=reply_markup)
+    await query.message.reply_text(
+        "Выберите группу расхода:", reply_markup=reply_markup
+    )
 
     return INPUT_GROUP
 
@@ -241,7 +246,9 @@ async def input_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     pattern = r"^\S.*"
     await update.message.from_user.delete_message(update.message.message_id)
     if not re.fullmatch(pattern, user_comment):
-        await update.message.reply_text("Недопустимый формат комментария. Попробуйте ещё раз.")
+        await update.message.reply_text(
+            "Недопустимый формат комментария. Попробуйте ещё раз."
+        )
         bot_message = await update.message.reply_text(
             "Введите комментарий:",
             reply_markup=ForceReply(selective=True),
@@ -304,7 +311,9 @@ async def input_dates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     # удаляем сообщение от пользователя с введёнными датами;
     # отправляем сообщение с клавиатурой о выборе типа оплаты
 
-    await update.message.reply_text(f"Введены даты: {context.user_data["dates_readable"]}")
+    await update.message.reply_text(
+        f"Введены даты: {context.user_data["dates_readable"]}"
+    )
     await update.message.from_user.delete_message(update.message.message_id)
     reply_markup = await create_keyboard(payment_types)
     await update.message.reply_text("Выберите тип оплаты:", reply_markup=reply_markup)
@@ -360,12 +369,14 @@ async def confirm_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     await query.answer()
     await query.edit_message_reply_markup(reply_markup=None)
-
+    initiator_id = query.from_user.id
     if query.data == "Подтвердить":
         context.args = context.user_data.get("final_command").split()
-        context.bot_data["initiator_message"] = context.user_data["initiator_message"]
+        context.bot_data["initiator_message"] = [
+            (initiator_id, context.user_data["initiator_message"].message_id)
+        ]
         context.user_data.clear()
-        initiator_nickname = await get_nickname("initiator", query.from_user.id)
+        initiator_nickname = await get_nickname("initiator", initiator_id)
         logger.info(f"Счёт создан инициатором: {initiator_nickname}")
         await submit_record_command(update, context)
         return ConversationHandler.END

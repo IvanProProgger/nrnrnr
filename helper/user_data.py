@@ -7,7 +7,6 @@ async def get_nickname(department: str, chat_id: str | int) -> str:
     chat_ids = Config.NICKNAMES.get(department)
     if chat_ids:
         return chat_ids.get(str(chat_id), "")
-    return ""
 
 
 async def get_department(chat_id: str | int) -> str:
@@ -40,3 +39,11 @@ async def get_departments(chat_id: str) -> list[str] | None:
     except Exception as e:
         logger.error(f"Ошибка поиска департамента по {chat_id}. Ошибка: {str(e)}")
         return None
+
+
+async def get_chat_id_by_nickname(nickname):
+    for role, nick_dict in Config.NICKNAMES.items():
+        for chat_number, nick in nick_dict.items():
+            if nick == nickname:
+                return chat_number
+    return None

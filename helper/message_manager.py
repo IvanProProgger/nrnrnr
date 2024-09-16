@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from config.logging_config import logger
 from db import db
 
-from helper.messages import INITIATOR, HEAD, FINANCE, PAYMENT, ALL
+from helper.messages import INITIATOR, HEAD, FINANCE, PAYMENT
 from helper.user_data import get_chat_ids, get_department
 
 
@@ -26,8 +26,7 @@ class MessageManager:
             "initiator": INITIATOR,
             "head": HEAD,
             "finance": FINANCE,
-            "payment": PAYMENT,
-            "all": ALL,
+            "payment": PAYMENT
         }
 
     def __getitem__(self, row_id):
@@ -90,6 +89,7 @@ class MessageManager:
         message_text = await self.get_message(department, stage, **await self(row_id))
         message_ids = []
         actual_chat_ids = []
+        logger.info(chat_ids)
         if isinstance(chat_ids, (int, str)):
             chat_ids = [chat_ids]
         for chat_id in chat_ids:
@@ -106,7 +106,7 @@ class MessageManager:
                     f"🚨Ошибка при отправке сообщения в chat_id: {chat_id}. Ошибка: {e}"
                 )
                 pass
-        self._data.get(row_id)[f"{department}_messages"] = list(
+        self[row_id][f"{department}_messages"] = list(
             zip(actual_chat_ids, message_ids)
         )
 
@@ -121,13 +121,13 @@ class MessageManager:
         """Отправляет новое и удаляет старое сообщение."""
 
         key = f"{department}_messages"
-        if (await self(row_id)).get(key) is None:
+        if self[row_id].get(key) is None:
             raise RuntimeError(f"Ошибка! По ключу {department}_messages нет данных!")
 
         actual_chat_ids = []
         message_ids = []
         message_text = await self.get_message(department, stage, **await self(row_id))
-        for chat_id, message_id in self._data[row_id].get(key):
+        for chat_id, message_id in self[row_id].get(key):
             try:
                 message = await context.bot.send_message(
                     chat_id=chat_id, text=f"🔄{message_text}", reply_markup=reply_markup
@@ -138,7 +138,9 @@ class MessageManager:
             except Exception as e:
                 logger.error(f"Не удалось обновить сообщение с chat_id: {chat_id}: {e}")
                 pass
-        self._data.get(row_id)[key] = list(zip(actual_chat_ids, message_ids))
+        self[row_id][key] = list(zip(actual_chat_ids, message_ids))
+
+
 
     async def send_department_messages(
         self,
@@ -185,18 +187,15 @@ class MessageManager:
             "finance_messages",
             "payment_messages",
         ]:
-            messages = self._data[row_id].get(message_type, [])
+            messages = self[row_id].get(message_type, [])
             all_messages.extend(messages)
 
-        if not self._data.get(row_id):
-            self._data[row_id] = {}
+        if "all_messages" not in self[row_id]:
+            self[row_id]["all_messages"] = []
 
-        if "all_messages" not in self._data[row_id]:
-            self._data[row_id]["all_messages"] = []
+        self[row_id]["all_messages"] = all_messages
 
-        self._data[row_id]["all_messages"].extend(all_messages)
-
-        return self._data[row_id]["all_messages"]
+        return self[row_id]["all_messages"]
 
 
 message_manager = MessageManager()
